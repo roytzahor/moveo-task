@@ -1,0 +1,42 @@
+name: Destroy AWS Infrastructure
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  terraform_destroy:
+    name: Destroy Terraform Managed Infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: "1.0.0"
+
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: "eu-north-2"
+
+    - name: Terraform Init
+      id: init
+      run: terraform init
+
+    - name: Terraform Destroy
+      id: destroy
+      run: terraform destroy -auto-approve
+      env:
+        TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Post Destroy Cleanup
+      if: always()
+      run: echo "Cleanup tasks or notifications can go here"
+
