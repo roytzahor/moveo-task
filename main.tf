@@ -1,4 +1,4 @@
-provider "aws" { 
+provider "aws" {
   region = "eu-north-1"
 }
 
@@ -11,7 +11,7 @@ resource "aws_vpc" "main" {
 
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.4.0/24"  # Changed from 10.0.1.0/24 to 10.0.4.0/24
+  cidr_block              = "10.0.4.0/24"
   availability_zone       = "eu-north-1a"
   map_public_ip_on_launch = true
 
@@ -22,7 +22,7 @@ resource "aws_subnet" "public_a" {
 
 resource "aws_subnet" "public_b" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.5.0/24"  # Changed from 10.0.3.0/24 to 10.0.5.0/24
+  cidr_block              = "10.0.5.0/24"
   availability_zone       = "eu-north-1b"
   map_public_ip_on_launch = true
 
@@ -30,7 +30,6 @@ resource "aws_subnet" "public_b" {
     Name = "PublicSubnetB"
   }
 }
-
 
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.main.id
@@ -69,7 +68,7 @@ resource "aws_route_table_association" "public_b" {
 }
 
 resource "aws_eip" "nat" {
-  domain = "vpc"
+  vpc      = true
   tags = {
     Name = "NATElasticIP"
   }
@@ -86,8 +85,8 @@ resource "aws_nat_gateway" "nat" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   route {
-    cidr_block = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat.id
+    cidr_block        = "0.0.0.0/0"
+    nat_gateway_id    = aws_nat_gateway.nat.id
   }
   tags = {
     Name = "PrivateRouteTable"
@@ -117,67 +116,6 @@ resource "aws_security_group" "nginx" {
   }
   tags = {
     Name = "NginxSecurityGroup"
-  }
-}
-
-resource "aws_security_group" "alb_sg" {
-  name        = "nginx-alb-security-group"
-  description = "ALB security group for NGINX"
-  vpc_id      = aws_vpc.main.id
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "ALBSecurityGroup"
-  }
-}
-resource "aws_lb" "nginx_alb" {
-  name               = "nginx-load-balancer"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
-  tags = {
-    Name = "NginxALB"
-  }
-}
-
-resource "aws_lb_target_group" "nginx_tg" {
-  name     = "nginx-target-group"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
-  health_check {
-    enabled             = true
-    interval            = 30
-    path                = "/"
-    protocol            = "HTTP"
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    timeout             = 5
-    matcher             = "200-299"
-  }
-  tags = {
-    Name = "NginxTargetGroup"
-  }
-}
-
-resource "aws_lb_listener" "nginx_listener" {
-  load_balancer_arn = aws_lb.nginx_alb.arn
-  port              = 80
-  protocol          = "HTTP"
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.nginx_tg.arn
   }
 }
 
