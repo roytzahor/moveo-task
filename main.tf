@@ -69,7 +69,7 @@ resource "aws_route_table_association" "private" {
 }
 
 resource "aws_instance" "nginx" {
-  ami           = "ami-0319ef1a70c93d5c8"
+  ami           = "ami-0319ef1a70c93d5c8" 
   instance_type = "t2.micro"
 
   subnet_id = aws_subnet.private.id
@@ -96,7 +96,7 @@ resource "aws_security_group" "allow_http" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [aws_subnet.public.cidr_block, aws_subnet.public2.cidr_block]
   }
 
   egress {
