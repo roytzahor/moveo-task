@@ -17,18 +17,20 @@ The goal is to deploy NGINX that displays "yo this is nginx" when accessed via a
 ## Architecture diagram
 ```bash
 [Internet]
-    ||
-[Internet Gateway]---[VPC]
-    ||                  |
-    ||              [Public Subnet]
-    ||                  |     \
-    ||                  |      [NAT Gateway]---[Internet]
-    ||                  |
-    ||              [ALB]---------------------[EC2 Instance]
-    ||                                           (NGINX)
-    ||                                          /
-    ||                                     [Private Subnet]
-    ||
+    |
+[Internet Gateway]
+    |
+    |-----[VPC]
+    |        |
+    |    [Public Subnet]
+    |        |    \
+    |    [ALB]   [NAT Gateway]---[Internet]
+    |        |          |
+    |        |          |
+    |        |-----[Private Subnet]
+    |                   |
+    |                   `---->[EC2 Instance (NGINX)]
+    |
     \/
 ```
 *Figure 1: High-level architecture diagram*
