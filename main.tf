@@ -11,15 +11,14 @@ resource "aws_internet_gateway" "gw" {
 }
 
 resource "aws_subnet" "public" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-west-2a"
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.1.0/24"
 }
 
 resource "aws_subnet" "public2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "us-west-2b"  
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.3.0/24"
+  availability_zone = "us-west-2b"
 }
 
 resource "aws_subnet" "private" {
@@ -70,7 +69,7 @@ resource "aws_route_table_association" "private" {
 }
 
 resource "aws_instance" "nginx" {
-  ami           = "ami-0319ef1a70c93d5c8" 
+  ami           = "ami-0319ef1a70c93d5c8"
   instance_type = "t2.micro"
 
   subnet_id = aws_subnet.private.id
@@ -114,6 +113,7 @@ resource "aws_lb" "lb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.allow_http.id]
   subnets            = [aws_subnet.public.id, aws_subnet.public2.id]
+
   enable_deletion_protection = false
 
   tags = {
@@ -134,7 +134,7 @@ resource "aws_lb_listener" "front_end" {
 }
 
 resource "aws_lb_target_group" "front_end" {
-  name     = "tf-example-lb-tg-${formatdate("YYYYMMDDHHmmss", timestamp())}"
+  name     = "tf-example-lb-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
