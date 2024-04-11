@@ -1,4 +1,67 @@
-# moveo-task
+# NGINX Deployment on AWS using Terraform
 
-add some value 
-another
+This project sets up a high-availability architecture on AWS to host a Dockerized NGINX server. The setup is managed entirely through Terraform and is designed to be robust, secure, and cost-efficient within the AWS free tier limits.
+
+## Overview
+
+The infrastructure includes:
+- **VPC** with a separate public and private subnet.
+- **Internet Gateway** to enable communication over the internet.
+- **NAT Gateway** to allow internet access for instances in the private subnet.
+- **Application Load Balancer (ALB)** to distribute incoming traffic.
+- **EC2 Instance** running within a private subnet, hosting the Dockerized NGINX.
+- **Security Groups** to tightly control traffic flow.
+
+The goal is to deploy NGINX that displays "yo this is nginx" when accessed via a web browser through the ALB.
+
+## Architecture diagram
+```bash
+[Internet]
+    ||
+[Internet Gateway]---[VPC]
+    ||                  |
+    ||              [Public Subnet]
+    ||                  |     \
+    ||                  |      [NAT Gateway]---[Internet]
+    ||                  |
+    ||              [ALB]---------------------[EC2 Instance]
+    ||                                           (NGINX)
+    ||                                          /
+    ||                                     [Private Subnet]
+    ||
+    \/
+```
+*Figure 1: High-level architecture diagram*
+
+## Prerequisites
+
+Before you begin, ensure you have the following:
+- AWS account
+- Terraform installed
+- AWS CLI installed and configured
+
+## Quick Start
+
+Clone this repository to get started:
+
+```bash
+git clone https://github.com/roytzahor/moveo-task.git
+cd moveo-task
+```
+## Setup Infrastructure
+Initialize Terraform and apply the configuration to start building the infrastructure:
+
+```bash
+terraform init
+terraform apply
+```
+## cleanup 
+remember to clean your enviroment using 
+```bash
+terraform destroy
+```
+
+## Confirm the apply when prompted.
+
+Access Application
+After deployment, access the application via the DNS name provided by the ALB output. This can be found in the Terraform output or in the AWS console under ELB services.
