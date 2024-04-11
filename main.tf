@@ -69,7 +69,7 @@ resource "aws_route_table_association" "private" {
 }
 
 resource "aws_instance" "nginx" {
-  ami           = "ami-01dad638e8f31ab9a" 
+  ami           = "ami-0319ef1a70c93d5c8" 
   instance_type = "t2.micro"
 
   subnet_id = aws_subnet.private.id
