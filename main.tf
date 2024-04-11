@@ -1,96 +1,66 @@
 provider "aws" {
-  region = "eu-north-1"
+  region = "us-west-2"
 }
 
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
-  tags = {
-    Name = "MainVPC"
-  }
 }
 
-resource "aws_subnet" "public_a" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.4.0/24"
-  availability_zone       = "eu-north-1a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "PublicSubnetA"
-  }
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
 }
 
-resource "aws_subnet" "public_b" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.5.0/24"
-  availability_zone       = "eu-north-1b"
-  map_public_ip_on_launch = true
+resource "aws_subnet" "public" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.1.0/24"
+}
 
-  tags = {
-    Name = "PublicSubnetB"
-  }
+resource "aws_subnet" "public2" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.3.0/24"
+  availability_zone = "us-west-2b"
 }
 
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.main.id
   cidr_block = "10.0.2.0/24"
-  tags = {
-    Name = "PrivateSubnet"
-  }
-}
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
-  tags = {
-    Name = "MainInternetGateway"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-  tags = {
-    Name = "PublicRouteTable"
-  }
-}
-
-resource "aws_route_table_association" "public_a" {
-  subnet_id      = aws_subnet.public_a.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_b" {
-  subnet_id      = aws_subnet.public_b.id
-  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_eip" "nat" {
-  vpc      = true
-  tags = {
-    Name = "NATElasticIP"
-  }
+  domain = "vpc"
 }
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public_a.id
-  tags = {
-    Name = "MainNATGateway"
+  subnet_id     = aws_subnet.public.id
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
   }
 }
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
+
   route {
-    cidr_block        = "0.0.0.0/0"
-    nat_gateway_id    = aws_nat_gateway.nat.id
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat.id
   }
-  tags = {
-    Name = "PrivateRouteTable"
-  }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public2" {
+  subnet_id      = aws_subnet.public2.id
+  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private" {
@@ -98,43 +68,90 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_security_group" "nginx" {
-  name        = "nginx-security-group"
-  description = "Allow web traffic"
+resource "aws_instance" "nginx" {
+  ami           = "ami-01dad638e8f31ab9a" 
+  instance_type = "t2.micro"
+
+  subnet_id = aws_subnet.private.id
+
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo yum update -y
+              sudo yum install -y docker
+              sudo docker pull roytzahor/nginx:latest
+              sudo docker run -d -p 80:80 roytzahor/nginx:latest
+              EOF
+
+  tags = {
+    Name = "nginx"
+  }
+}
+
+resource "aws_security_group" "allow_http" {
+  name        = "allow_http"
+  description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.main.id
+
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_lb" "lb" {
+  name               = "lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.allow_http.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public2.id]
+
+  enable_deletion_protection = false
+
   tags = {
-    Name = "NginxSecurityGroup"
+    Environment = "production"
+    Name        = "lb"
   }
 }
 
-resource "aws_instance" "nginx" {
-  ami                    = "ami-01dad638e8f31ab9a" # Make sure this AMI is valid in your region
-  instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.private.id
-  vpc_security_group_ids = [aws_security_group.nginx.id]
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.lb.arn
+  port              = "80"
+  protocol          = "HTTP"
 
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y docker
-              sudo service docker start
-              sudo docker pull roytzahor/nginx:latest
-              sudo docker run -d -p 80:80 roytzahor/nginx:latest
-              EOF
-
-  tags = {
-    Name = "NginxPrivateInstance"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.front_end.arn
   }
+}
+
+resource "aws_lb_target_group" "front_end" {
+  name     = "tf-example-lb-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 3
+    interval            = 30
+    path                = "/"
+    port                = "traffic-port"
+  }
+}
+
+resource "aws_lb_target_group_attachment" "test" {
+  target_group_arn = aws_lb_target_group.front_end.arn
+  target_id        = aws_instance.nginx.id
+  port             = 80
 }
