@@ -156,26 +156,38 @@ resource "aws_instance" "nginx" {
   security_groups        = [aws_security_group.instance_sg.id]
   associate_public_ip_address = false
 
-  user_data = <<-EOF
-                  #!/bin/bash
-                  echo "Starting user-data execution..."
-                  sudo yum update -y
-                  sudo amazon-linux-extras install docker -y
-                  sudo systemctl start docker
-                  sudo systemctl enable docker
-                  sudo usermod -a -G docker ec2-user
-                  if ! sudo docker run --name nginx -d -p 80:80 roytzahor/nginx:latest; then
-                      echo "Failed to start Nginx container."
-                  else
-                      echo "Nginx container started successfully."
-                      # Wait a moment to ensure that Nginx has started
-                      sleep 10
-                      # Fetching logs from the Nginx container
-                      sudo docker logs nginx > /var/log/nginx_startup_logs.txt
-                      # Testing if Nginx is serving content on port 80
-                      curl -o /var/log/nginx_response.txt http://localhost/
-                  fi
-              EOF
+user_data = <<-EOF
+    #!/bin/bash
+    echo "Starting user-data execution..."
+    
+    # Update YUM to the latest versions of all packages
+    sudo yum update -y
+    
+    # Install Docker from Amazon Linux Extras
+    sudo amazon-linux-extras install -y docker
+    
+    # Start and enable Docker service to ensure it runs on reboot
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    
+    # Add the 'ec2-user' to the 'docker' group to run docker commands without sudo
+    sudo usermod -aG docker ec2-user
+    
+    # Pull the latest version of custom Nginx image and run it
+    sudo docker pull roy/tzahor/nginx:latest
+    if ! sudo docker run --name nginx -d -p 80:80 roytzahor/nginx:latest; then
+        echo "Failed to start Nginx container."
+    else
+        echo "Nginx container started successfully."
+        # Wait a moment to ensure that Nginx has started
+        sleep 10
+        # Fetching logs from the Nginx container
+        sudo docker logs nginx > /var/log/nginx_startup_logs.txt
+        # Testing if Nginx is serving content on port 80
+        curl -o /var/log/nginx_response.txt http://localhost/
+    fi
+EOF
+
 
   tags = {
     Name = "NginxServer"
