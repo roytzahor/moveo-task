@@ -9,32 +9,34 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Define subnets
-resource "aws_subnet" "public" {
+# Define public subnets
+resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = true
   availability_zone       = "us-west-2a"
   tags = {
-    Name = "PublicSubnet"
+    Name = "PublicSubnetA"
   }
 }
 
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-west-2b"
+  tags = {
+    Name = "PublicSubnetB"
+  }
+}
+
+# Define private subnet
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-west-2c"
+  availability_zone = "us-west-2a"
   tags = {
     Name = "PrivateSubnet"
-  }
-}
-
-resource "aws_subnet" "private2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "us-west-2b"
-  tags = {
-    Name = "PrivateSubnet2"
   }
 }
 
@@ -54,7 +56,7 @@ resource "aws_eip" "nat" {
 # NAT Gateway configuration
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public.id
+  subnet_id     = aws_subnet.public_a.id
   tags = {
     Name = "MainNATGateway"
   }
@@ -72,8 +74,13 @@ resource "aws_route_table" "public" {
   }
 }
 
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -91,11 +98,6 @@ resource "aws_route_table" "private" {
 
 resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private2" {
-  subnet_id      = aws_subnet.private2.id
   route_table_id = aws_route_table.private.id
 }
 
@@ -152,11 +154,10 @@ resource "aws_security_group" "instance_sg" {
 resource "aws_instance" "nginx" {
   ami                    = "ami-0319ef1a70c93d5c8"
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.private2.id
+  subnet_id              = aws_subnet.private.id
   security_groups        = [aws_security_group.instance_sg.id]
   associate_public_ip_address = false
-
-user_data = <<-EOF
+  user_data = <<-EOF
     #!/bin/bash
     echo "Starting user-data execution..."
     
@@ -192,8 +193,6 @@ user_data = <<-EOF
     fi
 EOF
 
-
-
   tags = {
     Name = "NginxServer"
   }
@@ -205,7 +204,7 @@ resource "aws_lb" "lb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.allow_http.id]
-  subnets            = [aws_subnet.public.id, aws_subnet.private2.id]  # Ensure one subnet per AZ
+  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   enable_deletion_protection = false
 
