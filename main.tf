@@ -160,33 +160,38 @@ user_data = <<-EOF
     #!/bin/bash
     echo "Starting user-data execution..."
     
-    # Update YUM to the latest versions of all packages
-    sudo yum update -y
-    
-    # Install Docker from Amazon Linux Extras
-    sudo amazon-linux-extras install -y docker
+    # Install Docker if not installed
+    sudo yum install -y docker
     
     # Start and enable Docker service to ensure it runs on reboot
     sudo systemctl start docker
     sudo systemctl enable docker
     
-    # Add the 'ec2-user' to the 'docker' group to run docker commands without sudo
+    # Add the 'ec2-user' to the 'docker' group to allow running docker without sudo
     sudo usermod -aG docker ec2-user
     
-    # Pull the latest version of custom Nginx image and run it
-    sudo docker pull roy/tzahor/nginx:latest
-    if ! sudo docker run --name nginx -d -p 80:80 roytzahor/nginx:latest; then
+    # Pull the specific Nginx image built for AMD64 architecture
+    sudo docker pull roytzahor/nginx:latest-amd64
+    
+    # Run the Nginx container with auto-restart unless manually stopped
+    sudo docker run --name nginx -d -p 80:80 --restart=unless-stopped roytzahor/nginx:latest-amd64
+    
+    # Check if the Docker container is running properly
+    if ! sudo docker ps | grep -q nginx; then
         echo "Failed to start Nginx container."
+        exit 1
     else
         echo "Nginx container started successfully."
-        # Wait a moment to ensure that Nginx has started
-        sleep 10
-        # Fetching logs from the Nginx container
-        sudo docker logs nginx > /var/log/nginx_startup_logs.txt
-        # Testing if Nginx is serving content on port 80
-        curl -o /var/log/nginx_response.txt http://localhost/
+        # Quick test to see if Nginx serves content on port 80
+        if ! curl -s http://localhost/; then
+            echo "Nginx server error, check logs."
+            sudo docker logs nginx > /var/log/nginx_startup_logs.txt
+        else
+            echo "Nginx is active and serving content."
+        fi
     fi
 EOF
+
 
 
   tags = {
