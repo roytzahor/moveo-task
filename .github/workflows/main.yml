@@ -1,5 +1,10 @@
 name: Deploy NGINX Infrastructure
+
 on:
+  push:
+    branches:
+      - main
+      - dev
   workflow_dispatch:
 
 jobs:
