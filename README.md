@@ -1,6 +1,6 @@
 # NGINX Deployment on AWS using Terraform
 
-This project sets up a high-availability architecture on AWS to host a Dockerized NGINX server. The setup is managed entirely through Terraform and is designed to be robust, secure, and cost-efficient within the AWS free tier limits.
+This project sets up a high-availability architecture on AWS to host a Dockerized NGINX server returning 'yo this is nginx'. The setup is managed entirely through Terraform and is designed to be robust, secure, and cost-efficient within the AWS free tier limits.
 
 ## Overview
 
@@ -18,18 +18,16 @@ The goal is to deploy NGINX that displays "yo this is nginx" when accessed via a
 ```bash
 [Internet]
     |
-[Internet Gateway]
-    |
-    |-----[VPC]
-    |        |
-    |    [Public Subnet]
-    |        |    \
-    |    [ALB]   [NAT Gateway]---[Internet]
-    |        |          |
-    |        |          |
-    |        |-----[Private Subnet]
-    |                   |
-    |                   `---->[EC2 Instance (NGINX)]
+[Internet Gateway]-----[VPC: 10.0.0.0/16]
+    |                         |
+    |                   [Public Subnet: 10.0.1.0/24]
+    |                         |    \
+    |                     [ALB]   [NAT Gateway]---[Internet]
+    |                         |          |
+    |                         |          |
+    |                         |-----[Private Subnet: 10.0.2.0/24]
+    |                                          |
+    |                                          `---->[EC2 Instance (NGINX)]
     |
     \/
 ```
